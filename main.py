@@ -135,26 +135,27 @@ yolo_classes = {0: 'person',
 current_classes = []  # Almacena las clases actuales
 showing_classes = True  # Indica si estamos mostrando clases o preguntando
 start_time = time.time()
-
+current_class = ""
 emotion_log = []
 log_interval = 3  # Cada 3 segundos
 current_emotion = "Desconocida"  # Inicializa la emoción como desconocida
 csv_file = "emotion_log.csv"  # Nombre del archivo CSV
+time_to_show_classes = 20
 
 def generate_random_classes():
-    global current_classes, showing_classes, start_time
+    global current_classes, showing_classes, start_time, exluded_classes
     while True:
         if showing_classes:
             exluded_classes = []
             current_classes = [random.randint(0, 79) for _ in range(3)]  # Seleccionar 5 clases aleatorias
             print(f"Clases mostradas: {[yolo_classes[class_id] for class_id in current_classes]}")
             start_time = time.time()  # Reiniciar el tiempo para la siguiente fase (pregunta)
-            time.sleep(10)  # Mostrar cada clase durante 10 segundos, por un total de 50 segundos
+            time.sleep(9)  # Mostrar cada clase durante 10 segundos, por un total de 50 segundos
             showing_classes = False  # Cambiar a la fase de preguntas
         else:
             start_time = time.time()  # Registrar el inicio del periodo de preguntas
             print("¿Cuáles eran las clases mostradas?")
-            time.sleep(20)  # Mostrar la pregunta durante 20 segundos
+            time.sleep(time_to_show_classes+6)  # Mostrar la pregunta durante 20 segundos
             showing_classes = True  
 
 class_thread = threading.Thread(target=generate_random_classes)
@@ -269,8 +270,18 @@ def start_logging():
         log_emotion(current_emotion, counter)  # Usa la variable global 'current_emotion'
         time.sleep(log_interval)
 
+def getCurrentClass():
+    global current_class
+    time.sleep(6)
+    while True:
+        for i in range(len(current_classes)):
+            current_class = yolo_classes[current_classes[i]]
+            time.sleep(3)
+        current_class = "Hora de memorizar"
+        time.sleep(time_to_show_classes)
+
 def process_video_stream_face(source, stream_id):
-    global current_emotion, counter
+    global current_emotion, counter, current_class
 
     face_model = YOLO("yolov8n-face.pt")
     face_model.to('cuda')
@@ -282,6 +293,8 @@ def process_video_stream_face(source, stream_id):
     # Iniciar un hilo para registrar la emoción y puntaje cada 3 segundos
     logging_thread = threading.Thread(target=start_logging, daemon=True)
     logging_thread.start()
+    show_class_thread = threading.Thread(target=getCurrentClass, daemon=True)
+    show_class_thread.start()
 
     while True:
         if not cap.isOpened():
@@ -295,6 +308,8 @@ def process_video_stream_face(source, stream_id):
             cap.release()
             cap = cv2.VideoCapture(source)
             continue
+        
+        cv2.putText(img=frame, text=str(current_class), org=(200, 100), fontFace=cv2.FONT_HERSHEY_SIMPLEX, fontScale=1.0, color=(255,255,255), thickness=2)
 
         # Detección facial usando el modelo YOLO
         face_results = face_model(frame, stream=True)
@@ -334,5 +349,12 @@ def process_video_stream_face(source, stream_id):
     cap.release()
     cv2.destroyAllWindows()
 
-process_video_stream_face(0, "Face")
-process_video_stream_objects(1, "Objects")
+#process_video_stream_face(0, "Face")
+#process_video_stream_objects(1, "Objects")
+
+thread = threading.Thread(target=process_video_stream_face, args=(0, "Face"))
+thread0 = threading.Thread(target=process_video_stream_objects, args=(1, "Detection"))
+thread.start()
+thread0.start()
+thread.join()
+thread0.join()
