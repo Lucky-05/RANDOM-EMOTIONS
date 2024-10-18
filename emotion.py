@@ -45,6 +45,7 @@ counter = 0
 emotion_classes = ['neutral', 'Happy', 'surprise', 'sadness', 'anger', 'disgust', 'fear', 'contempt']  # Ajusta las clases según tu modelo
 
 
+
 def preprocess_image(image):
     img = Image.fromarray(image).convert('L')  
     img = img.resize((48, 48))  
